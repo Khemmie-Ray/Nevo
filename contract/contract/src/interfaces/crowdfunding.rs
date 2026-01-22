@@ -33,4 +33,12 @@ pub trait CrowdfundingTrait {
         pool_id: u64,
         new_state: PoolState,
     ) -> Result<(), CrowdfundingError>;
+
+    fn initialize(env: Env, admin: Address) -> Result<(), CrowdfundingError>;
+
+    fn pause(env: Env) -> Result<(), CrowdfundingError>;
+
+    fn unpause(env: Env) -> Result<(), CrowdfundingError>;
+
+    fn is_paused(env: Env) -> bool;
 }

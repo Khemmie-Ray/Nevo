@@ -77,6 +77,8 @@ pub enum StorageKey {
     PoolState(u64),
     PoolMetrics(u64),
     NextPoolId,
+    IsPaused,
+    Admin,
 }
 
 #[cfg(test)]

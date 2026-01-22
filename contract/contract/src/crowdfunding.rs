@@ -20,6 +20,9 @@ impl CrowdfundingTrait for CrowdfundingContract {
         goal: i128,
         deadline: u64,
     ) -> Result<(), CrowdfundingError> {
+        if Self::is_paused(env.clone()) {
+            return Err(CrowdfundingError::ContractPaused);
+        }
         creator.require_auth();
 
         if title.len() == 0 {
@@ -70,6 +73,9 @@ impl CrowdfundingTrait for CrowdfundingContract {
         target_amount: i128,
         deadline: u64,
     ) -> Result<u64, CrowdfundingError> {
+        if Self::is_paused(env.clone()) {
+            return Err(CrowdfundingError::ContractPaused);
+        }
         creator.require_auth();
 
         // Validate inputs
@@ -177,5 +183,55 @@ impl CrowdfundingTrait for CrowdfundingContract {
         events::pool_state_updated(&env, pool_id, new_state);
 
         Ok(())
+    }
+
+    fn initialize(env: Env, admin: Address) -> Result<(), CrowdfundingError> {
+        if env.storage().instance().has(&StorageKey::Admin) {
+            return Err(CrowdfundingError::ContractAlreadyInitialized);
+        }
+        env.storage().instance().set(&StorageKey::Admin, &admin);
+        env.storage().instance().set(&StorageKey::IsPaused, &false);
+        Ok(())
+    }
+
+    fn pause(env: Env) -> Result<(), CrowdfundingError> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&StorageKey::Admin)
+            .ok_or(CrowdfundingError::CampaignNotFound)?; // Or some other error if not initialized
+        admin.require_auth();
+
+        if Self::is_paused(env.clone()) {
+            return Err(CrowdfundingError::ContractAlreadyPaused);
+        }
+
+        env.storage().instance().set(&StorageKey::IsPaused, &true);
+        events::contract_paused(&env, admin, env.ledger().timestamp());
+        Ok(())
+    }
+
+    fn unpause(env: Env) -> Result<(), CrowdfundingError> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&StorageKey::Admin)
+            .ok_or(CrowdfundingError::CampaignNotFound)?;
+        admin.require_auth();
+
+        if !Self::is_paused(env.clone()) {
+            return Err(CrowdfundingError::ContractAlreadyUnpaused);
+        }
+
+        env.storage().instance().set(&StorageKey::IsPaused, &false);
+        events::contract_unpaused(&env, admin, env.ledger().timestamp());
+        Ok(())
+    }
+
+    fn is_paused(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get(&StorageKey::IsPaused)
+            .unwrap_or(false)
     }
 }

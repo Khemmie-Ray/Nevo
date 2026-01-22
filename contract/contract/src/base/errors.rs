@@ -15,4 +15,8 @@ pub enum CrowdfundingError {
     InvalidPoolDeadline = 9,
     PoolAlreadyExists = 10,
     InvalidPoolState = 11,
+    ContractPaused = 12,
+    ContractAlreadyPaused = 13,
+    ContractAlreadyUnpaused = 14,
+    ContractAlreadyInitialized = 15,
 }

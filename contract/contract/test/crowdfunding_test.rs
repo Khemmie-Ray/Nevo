@@ -416,3 +416,193 @@ fn test_multiple_pools() {
     client.update_pool_state(&pool_id1, &PoolState::Paused);
     client.update_pool_state(&pool_id2, &PoolState::Active);
 }
+
+#[test]
+fn test_pause_unpause_full_cycle() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(CrowdfundingContract, ());
+    let client = CrowdfundingContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    // Initial state
+    assert_eq!(client.is_paused(), false);
+
+    // Pause
+    client.pause();
+    assert_eq!(client.is_paused(), true);
+
+    // Unpause
+    client.unpause();
+    assert_eq!(client.is_paused(), false);
+}
+
+#[test]
+fn test_admin_auth_for_pause() {
+    let env = Env::default();
+    let contract_id = env.register(CrowdfundingContract, ());
+    let client = CrowdfundingContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    // Admin can pause
+    client
+        .mock_auths(&[soroban_sdk::testutils::MockAuth {
+            address: &admin,
+            invoke: &soroban_sdk::testutils::MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "pause",
+                args: soroban_sdk::vec![&env],
+                sub_invokes: &[],
+            },
+        }])
+        .pause();
+    assert_eq!(client.is_paused(), true);
+}
+
+#[test]
+#[should_panic]
+fn test_non_admin_cannot_pause() {
+    let env = Env::default();
+    let contract_id = env.register(CrowdfundingContract, ());
+    let client = CrowdfundingContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let non_admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    // Non-admin trying to pause - should fail (require_auth will fail)
+    client
+        .mock_auths(&[soroban_sdk::testutils::MockAuth {
+            address: &non_admin,
+            invoke: &soroban_sdk::testutils::MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "pause",
+                args: soroban_sdk::vec![&env],
+                sub_invokes: &[],
+            },
+        }])
+        .pause();
+}
+
+#[test]
+fn test_operations_disabled_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(CrowdfundingContract, ());
+    let client = CrowdfundingContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    client.pause();
+
+    // Try create campaign - should fail
+    let creator = Address::generate(&env);
+    let camp_id = create_test_campaign_id(&env, 10);
+    let title = String::from_str(&env, "Test");
+    let goal = 1000i128;
+    let deadline = env.ledger().timestamp() + 10000;
+
+    let result = client.try_create_campaign(&camp_id, &title, &creator, &goal, &deadline);
+    assert_eq!(result, Err(Ok(CrowdfundingError::ContractPaused)));
+
+    // Try save pool - should fail
+    let result_pool = client.try_save_pool(&title, &title, &creator, &goal, &deadline);
+    assert_eq!(result_pool, Err(Ok(CrowdfundingError::ContractPaused)));
+}
+
+#[test]
+fn test_getters_work_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(CrowdfundingContract, ());
+    let client = CrowdfundingContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    // Create a campaign before pausing
+    let creator = Address::generate(&env);
+    let camp_id = create_test_campaign_id(&env, 11);
+    client.create_campaign(
+        &camp_id,
+        &String::from_str(&env, "Pre-pause"),
+        &creator,
+        &1000i128,
+        &(env.ledger().timestamp() + 10000),
+    );
+
+    client.pause();
+
+    // Getters should still work
+    let campaign = client.get_campaign(&camp_id);
+    assert_eq!(campaign.id, camp_id);
+    assert_eq!(client.is_paused(), true);
+}
+
+#[test]
+fn test_cannot_pause_already_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(CrowdfundingContract, ());
+    let client = CrowdfundingContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    client.pause();
+    let result = client.try_pause();
+    assert_eq!(result, Err(Ok(CrowdfundingError::ContractAlreadyPaused)));
+}
+
+#[test]
+fn test_cannot_unpause_already_unpaused() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(CrowdfundingContract, ());
+    let client = CrowdfundingContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    let result = client.try_unpause();
+    assert_eq!(result, Err(Ok(CrowdfundingError::ContractAlreadyUnpaused)));
+}
+
+#[test]
+fn test_operations_enabled_after_unpause() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(CrowdfundingContract, ());
+    let client = CrowdfundingContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    client.initialize(&admin);
+
+    client.pause();
+    client.unpause();
+
+    let creator = Address::generate(&env);
+    let camp_id = create_test_campaign_id(&env, 12);
+    let title = String::from_str(&env, "After Unpause");
+    client.create_campaign(
+        &camp_id,
+        &title,
+        &creator,
+        &1000i128,
+        &(env.ledger().timestamp() + 10000),
+    );
+
+    let campaign = client.get_campaign(&camp_id);
+    assert_eq!(campaign.title, title);
+}
