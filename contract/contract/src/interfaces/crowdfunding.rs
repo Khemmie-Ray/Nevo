@@ -2,7 +2,7 @@ use soroban_sdk::{Address, BytesN, Env, String, Vec};
 
 use crate::base::{
     errors::CrowdfundingError,
-    types::{CampaignDetails, PoolConfig, PoolMetadata, PoolState},
+    types::{CampaignDetails, CampaignLifecycleStatus, PoolConfig, PoolMetadata, PoolState},
 };
 
 pub trait CrowdfundingTrait {
@@ -35,6 +35,11 @@ pub trait CrowdfundingTrait {
     fn get_campaign_goal(env: Env, campaign_id: BytesN<32>) -> Result<i128, CrowdfundingError>;
 
     fn is_campaign_completed(env: Env, campaign_id: BytesN<32>) -> Result<bool, CrowdfundingError>;
+
+    fn get_campaign_status(
+        env: Env,
+        campaign_id: BytesN<32>,
+    ) -> Result<CampaignLifecycleStatus, CrowdfundingError>;
 
     fn donate(
         env: Env,

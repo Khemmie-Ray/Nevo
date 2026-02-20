@@ -5,9 +5,9 @@ use crate::base::{
     errors::CrowdfundingError,
     events,
     types::{
-        CampaignDetails, CampaignMetrics, Contribution, EmergencyWithdrawal, MultiSigConfig,
-        PoolConfig, PoolContribution, PoolMetadata, PoolMetrics, PoolState, StorageKey,
-        MAX_DESCRIPTION_LENGTH, MAX_HASH_LENGTH, MAX_URL_LENGTH,
+        CampaignDetails, CampaignLifecycleStatus, CampaignMetrics, Contribution, EmergencyWithdrawal,
+        MultiSigConfig, PoolConfig, PoolContribution, PoolMetadata, PoolMetrics, PoolState,
+        StorageKey, MAX_DESCRIPTION_LENGTH, MAX_HASH_LENGTH, MAX_URL_LENGTH,
     },
 };
 use crate::interfaces::crowdfunding::CrowdfundingTrait;
@@ -243,6 +243,27 @@ impl CrowdfundingTrait for CrowdfundingContract {
         let campaign = Self::get_campaign(env.clone(), campaign_id.clone())?;
         let balance = Self::get_campaign_balance(env, campaign_id)?;
         Ok(balance >= campaign.goal)
+    }
+
+    fn get_campaign_status(
+        env: Env,
+        campaign_id: BytesN<32>,
+    ) -> Result<CampaignLifecycleStatus, CrowdfundingError> {
+        let campaign = Self::get_campaign(env.clone(), campaign_id.clone())?;
+        let total_raised = Self::get_campaign_balance(env.clone(), campaign_id.clone())?;
+        let current_time = env.ledger().timestamp();
+        let cancellation_key = StorageKey::CampaignCancelled(campaign_id.clone());
+        let is_cancelled = env.storage().instance().has(&cancellation_key);
+
+        let status = CampaignLifecycleStatus::get_status(
+            total_raised,
+            campaign.goal,
+            campaign.deadline,
+            current_time,
+            is_cancelled,
+        );
+
+        Ok(status)
     }
 
     fn donate(

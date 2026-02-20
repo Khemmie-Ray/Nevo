@@ -1080,6 +1080,105 @@ fn test_is_campaign_completed() {
 }
 
 #[test]
+fn test_get_campaign_status_live() {
+    let env = Env::default();
+    let (client, _, token_address) = setup_test(&env);
+
+    let creator = Address::generate(&env);
+    let id = create_test_campaign_id(&env, 106);
+    let goal = 1000i128;
+    let deadline = env.ledger().timestamp() + 1000;
+
+    client.create_campaign(
+        &id,
+        &String::from_str(&env, "Live Campaign"),
+        &creator,
+        &goal,
+        &deadline,
+        &token_address,
+    );
+
+    let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_address);
+    let donor = Address::generate(&env);
+    token_admin_client.mint(&donor, &500i128);
+
+    client.donate(&id, &donor, &token_address, &500i128);
+
+    let status = client.get_campaign_status(&id);
+    assert_eq!(
+        status,
+        crate::base::types::CampaignLifecycleStatus::Live
+    );
+}
+
+#[test]
+fn test_get_campaign_status_successful() {
+    let env = Env::default();
+    let (client, _, token_address) = setup_test(&env);
+
+    let creator = Address::generate(&env);
+    let id = create_test_campaign_id(&env, 107);
+    let goal = 1000i128;
+    let deadline = env.ledger().timestamp() + 1000;
+
+    client.create_campaign(
+        &id,
+        &String::from_str(&env, "Successful Campaign"),
+        &creator,
+        &goal,
+        &deadline,
+        &token_address,
+    );
+
+    let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_address);
+    let donor = Address::generate(&env);
+    token_admin_client.mint(&donor, &1000i128);
+
+    client.donate(&id, &donor, &token_address, &1000i128);
+
+    let status = client.get_campaign_status(&id);
+    assert_eq!(
+        status,
+        crate::base::types::CampaignLifecycleStatus::Successful
+    );
+}
+
+#[test]
+fn test_get_campaign_status_expired() {
+    let env = Env::default();
+    let (client, _, token_address) = setup_test(&env);
+    env.ledger().with_mut(|li| li.timestamp = 1000);
+
+    let creator = Address::generate(&env);
+    let id = create_test_campaign_id(&env, 108);
+    let goal = 1000i128;
+    let deadline = 1500u64;
+
+    client.create_campaign(
+        &id,
+        &String::from_str(&env, "Expired Campaign"),
+        &creator,
+        &goal,
+        &deadline,
+        &token_address,
+    );
+
+    let token_admin_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_address);
+    let donor = Address::generate(&env);
+    token_admin_client.mint(&donor, &500i128);
+
+    client.donate(&id, &donor, &token_address, &500i128);
+
+    env.ledger().with_mut(|li| li.timestamp = 2000);
+
+    let status = client.get_campaign_status(&id);
+    assert_eq!(
+        status,
+        crate::base::types::CampaignLifecycleStatus::Expired
+    );
+}
+
+#[test]
 fn test_donate_deadline_passed() {
     let env = Env::default();
     let (client, _, token_address) = setup_test(&env);
