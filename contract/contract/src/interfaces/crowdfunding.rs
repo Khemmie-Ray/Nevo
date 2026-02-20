@@ -18,6 +18,8 @@ pub trait CrowdfundingTrait {
 
     fn get_campaign(env: Env, id: BytesN<32>) -> Result<CampaignDetails, CrowdfundingError>;
 
+    fn get_campaigns(env: Env, ids: Vec<BytesN<32>>) -> Vec<CampaignDetails>;
+
     fn get_all_campaigns(env: Env) -> Vec<BytesN<32>>;
 
     fn get_donor_count(env: Env, campaign_id: BytesN<32>) -> Result<u32, CrowdfundingError>;

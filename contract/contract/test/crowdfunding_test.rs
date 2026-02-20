@@ -971,6 +971,126 @@ fn test_get_all_campaigns() {
 }
 
 #[test]
+fn test_get_campaigns_bulk_retrieval_order() {
+    let env = Env::default();
+    let (client, _, _) = setup_test(&env);
+
+    let admin = Address::generate(&env);
+    let token_id = env
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
+    let creator = Address::generate(&env);
+
+    // Create multiple campaigns with different IDs
+    let id_a = create_test_campaign_id(&env, 201);
+    let id_b = create_test_campaign_id(&env, 202);
+    let id_c = create_test_campaign_id(&env, 203);
+    let id_d = create_test_campaign_id(&env, 204);
+
+    client.create_campaign(
+        &id_a,
+        &String::from_str(&env, "Campaign A"),
+        &creator,
+        &1000i128,
+        &(env.ledger().timestamp() + 100),
+        &token_id,
+    );
+    client.create_campaign(
+        &id_b,
+        &String::from_str(&env, "Campaign B"),
+        &creator,
+        &2000i128,
+        &(env.ledger().timestamp() + 200),
+        &token_id,
+    );
+    client.create_campaign(
+        &id_c,
+        &String::from_str(&env, "Campaign C"),
+        &creator,
+        &3000i128,
+        &(env.ledger().timestamp() + 300),
+        &token_id,
+    );
+    client.create_campaign(
+        &id_d,
+        &String::from_str(&env, "Campaign D"),
+        &creator,
+        &4000i128,
+        &(env.ledger().timestamp() + 400),
+        &token_id,
+    );
+
+    // Request campaigns in reverse order: D, C, B, A
+    let mut ids_reverse = Vec::new(&env);
+    ids_reverse.push_back(id_d.clone());
+    ids_reverse.push_back(id_c.clone());
+    ids_reverse.push_back(id_b.clone());
+    ids_reverse.push_back(id_a.clone());
+
+    let campaigns = client.get_campaigns(&ids_reverse);
+
+    // Verify the order matches the requested IDs
+    assert_eq!(campaigns.len(), 4);
+    assert_eq!(campaigns.get(0).unwrap().id, id_d);
+    assert_eq!(campaigns.get(1).unwrap().id, id_c);
+    assert_eq!(campaigns.get(2).unwrap().id, id_b);
+    assert_eq!(campaigns.get(3).unwrap().id, id_a);
+
+    // Verify content matches expected values
+    assert_eq!(campaigns.get(0).unwrap().goal, 4000i128);
+    assert_eq!(campaigns.get(1).unwrap().goal, 3000i128);
+    assert_eq!(campaigns.get(2).unwrap().goal, 2000i128);
+    assert_eq!(campaigns.get(3).unwrap().goal, 1000i128);
+}
+
+#[test]
+fn test_get_campaigns_partial_retrieval() {
+    let env = Env::default();
+    let (client, _, _) = setup_test(&env);
+
+    let admin = Address::generate(&env);
+    let token_id = env
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
+    let creator = Address::generate(&env);
+
+    // Create two campaigns
+    let id1 = create_test_campaign_id(&env, 211);
+    let id2 = create_test_campaign_id(&env, 212);
+    let id_nonexistent = create_test_campaign_id(&env, 213);
+
+    client.create_campaign(
+        &id1,
+        &String::from_str(&env, "Existing Campaign"),
+        &creator,
+        &1000i128,
+        &(env.ledger().timestamp() + 100),
+        &token_id,
+    );
+    client.create_campaign(
+        &id2,
+        &String::from_str(&env, "Another Campaign"),
+        &creator,
+        &2000i128,
+        &(env.ledger().timestamp() + 100),
+        &token_id,
+    );
+
+    // Request one existing and one non-existing campaign
+    let mut ids = Vec::new(&env);
+    ids.push_back(id1.clone());
+    ids.push_back(id_nonexistent);
+    ids.push_back(id2.clone());
+
+    let campaigns = client.get_campaigns(&ids);
+
+    // Should return only the existing campaigns in order
+    assert_eq!(campaigns.len(), 2);
+    assert_eq!(campaigns.get(0).unwrap().id, id1);
+    assert_eq!(campaigns.get(1).unwrap().id, id2);
+}
+
+#[test]
 fn test_donate_and_donor_count() {
     let env = Env::default();
     let (client, _, token_address) = setup_test(&env);
