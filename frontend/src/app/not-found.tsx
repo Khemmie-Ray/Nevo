@@ -37,8 +37,8 @@ export default function NotFound() {
           className="text-lg sm:text-xl mb-8 leading-relaxed"
           style={{ color: '#a0aec0' }}
         >
-          Oops! It looks like you've ventured into uncharted territory. The page you're looking
-          for doesn't exist or has been moved.
+          Oops! It looks like you&apos;ve ventured into uncharted territory. The page you&apos;re looking
+          for doesn&apos;t exist or has been moved.
         </p>
 
         {/* Decorative Element */}
