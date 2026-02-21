@@ -425,6 +425,21 @@ impl CrowdfundingTrait for CrowdfundingContract {
             .ok_or(CrowdfundingError::CampaignNotFound)
     }
 
+    fn get_campaigns(env: Env, ids: Vec<BytesN<32>>) -> Vec<CampaignDetails> {
+        let mut results = Vec::new(&env);
+        for id in ids.iter() {
+            let campaign_key = (id,);
+            if let Some(campaign) = env
+                .storage()
+                .instance()
+                .get::<_, CampaignDetails>(&campaign_key)
+            {
+                results.push_back(campaign);
+            }
+        }
+        results
+    }
+
     fn create_pool(
         env: Env,
         creator: Address,
